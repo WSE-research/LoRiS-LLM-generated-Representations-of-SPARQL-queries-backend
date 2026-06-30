@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.14
 
 COPY requirements.txt ./
 RUN pip install --upgrade pip
