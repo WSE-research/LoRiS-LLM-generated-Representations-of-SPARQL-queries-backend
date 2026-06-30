@@ -1,0 +1,53 @@
+# CI for LoRiS backend: lint + unit tests (coverage gate) + an end-to-end
+# TestClient smoke. Deployment stays in build-deploy.yml.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install ruff
+      - run: ruff check . || true
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      - name: Unit tests with coverage gate
+        run: |
+          pytest tests -m "not e2e" --cov=utils.rdf \
+            --cov-report=term-missing --cov-report=xml --cov-fail-under=70 \
+            --junitxml=pytest-report.xml
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: coverage, path: coverage.xml, if-no-files-found: ignore }
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      - name: End-to-end TestClient smoke
+        run: pytest tests/e2e -m e2e -v
